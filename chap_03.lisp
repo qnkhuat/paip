@@ -223,3 +223,105 @@
 (with-open-stream (stream (open "test.txt" :direction :input))
   (read stream))
 ;; => (HELLO WORLD)
+
+
+;; str format
+
+;; ~& is like \n
+(format t "sup~&bro")
+;; ~a print like princ would
+(format t "hey ~a ya" "ha")
+;; ~s print like print1 would, it doesn't escape str
+(format t "hey ~s ya" "ha")
+;; ~f print number in floating point format
+(format t "Yo ~f" 123.12)
+
+
+;; error handling
+(defun average (numbers)
+  (if (null numbers)
+    ;; like throw in clojure
+    (error "Average of the empty list is undefined")
+    (/ (reduce #'+ numbers)
+       (length numbers))))
+
+(average nil)
+
+(defun average-continue (numbers)
+  (if (null numbers)
+    (progn (cerror "use 0 as average"
+                   "Average of the empty list is undefined")
+           0)
+    (/ (reduce #'+ numbers)
+       (length numbers))))
+
+(average-continue nil)
+
+;; there are also `ecase` where if no case are matched, it'll throw an error
+;; `ccase` will throw an contiunable error
+;; check-type and assert are also useful
+
+(defun do-that
+  (x)
+  (assert (numberp x) (x))
+  (+ x 1))
+
+(time (do-that 3))
+
+;; lexical scoped is the scope determined by the lexical (source code), whereas dynamic scope is determined by the scope
+;; in which a funciton is called in
+
+;; the lexical scope of lisp is quite special.
+;; consider the scope of this `bank-account` function
+(defun saving-account (balance)
+  #'(lambda (new-amount)
+      (setf balance (+ balance new-amount))))
+
+(setf my-account (saving-account 300))
+(funcall my-account 100)
+;; => 400
+(funcall my-account 100)
+;; => 500
+;; notice here the lifetime of `balance` exists even after the closure my-account is created
+
+;; SPECIAL VARIABLE
+
+(defvar *counter* 0) ;; special variable can be defined by defvar or defparameter
+
+(defun report-count ()
+  (format nil "Counter = ~a" *counter*))
+
+(report-count)
+;; => "Counter = 0"
+
+(let ((*counter* 3))
+  (report-count))
+;; => "Counter = 3"
+;; a special varaible can be shadowed by local binding
+;; basically it's like dynamic variable in clojure
+
+(+ 1 2 3)
+
+;; multiple values
+
+(defun hey ()
+  (values 1 2))
+
+(multiple-value-bind (int rem) (hey)
+  (format t "1st ~a~%" int)
+  (format t "2nd ~a~%" rem))
+
+;; Optional and default parameters
+
+(defun do-stuff (&optional (op '+) (fst 1) (snd 2))
+  (funcall op fst snd))
+(do-stuff)
+;; => 3
+(do-stuff '-)
+;; => -1
+
+(defun do-stuff (&key (op '+) (fst 1) (snd 2))
+  (funcall op fst snd))
+
+(do-stuff :fst 2)
+;; => 4
