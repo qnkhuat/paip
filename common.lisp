@@ -14,9 +14,12 @@
     (apply #'remove item sequence :test-not (complement test-not) keyword-args)
     (apply #'remove item sequence :test (complement test) keyword-args)))
 
+(defun find-all-if
+  (predicate sequence)
+  (remove-if-not predicate sequence))
 
 (defun set-changes (old-set new-set)
   "Find elements added and deleted between two sets."
-  (let ((added (set-difference new-set old-set :test #'equal))
+  (let ((added   (set-difference new-set old-set :test #'equal))
         (deleted (set-difference old-set new-set :test #'equal)))
     (list :added added :deleted deleted)))
