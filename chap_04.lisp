@@ -317,3 +317,14 @@
        (space on b)
        (space on table))
      '((c on table) (a on b)))
+
+;; Ex 4.2:
+
+(defun permute
+  (l)
+  (if (null l)
+    '(())
+    (mapcan #'(lambda (e)
+                (mapcar #'(lambda (p) (cons e p))
+                        (permute (remove e l :count 1 :test #'eq))))
+            l)))

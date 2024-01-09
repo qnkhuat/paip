@@ -23,3 +23,6 @@
   (let ((added   (set-difference new-set old-set :test #'equal))
         (deleted (set-difference old-set new-set :test #'equal)))
     (list :added added :deleted deleted)))
+
+(defun member-equal (item list)
+  (member item list :test #'equal))
