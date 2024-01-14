@@ -26,3 +26,30 @@
 
 (defun member-equal (item list)
   (member item list :test #'equal))
+
+(defvar *dbg-ids* nil "Identifiers used by dbg")
+(defvar *debug-output* *debug-io*)
+
+(defun dbg (id format-string &rest args)
+  "When debugging info if (DEBUG ID) has been specified"
+  (when (member id *dbg-ids*)
+    (format *debug-output* "~%")
+    (apply #'format *debug-output* format-string args)))
+
+(defun debug* (&rest ids)
+  "Start dbg output on the given ids."
+  (setf *dbg-ids* (union ids *dbg-ids*)))
+
+(defun undebug (&rest ids)
+  (setf *dbg-ids* (if (null ids) nil
+                    (set-difference *dbg-ids* ids))))
+
+(defun dbg-indent (id indent format-string &rest args)
+  (when (member id *dbg-ids*)
+    (format *debug-output* "~%")
+    (dotimes (i indent) (princ "  " t))
+    (apply #'format *debug-output* format-string args)))
+
+(defun starts-with (list x)
+ "Is this a list whose first element is x?"
+ (and (consp list) (eql (first list) x)))
