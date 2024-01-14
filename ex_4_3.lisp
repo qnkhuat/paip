@@ -146,6 +146,50 @@
      '(son-at-school))
 
 
+;; Ex 4.3 begins
 
+(defparameter *eat-dessert-ops*
+  (list
+    (make-op :action 'eat-ice-cream
+             :preconds '(has-ice-cream)
+             :add-list '(joy-dessert)
+             :del-list '(has-ice-cream))
+    (make-op :action 'eat-cake
+             :preconds '(has-cake)
+             :add-list '(joy-dessert)
+             :del-list '(has-cake))
+    (make-op :action 'buy-cake
+             :preconds '(has-money)
+             :add-list '(has-cake)
+             :del-list '(has-money))
+    (make-op :action 'eat-cake-when-buy
+             :preconds '(has-cake)
+             :add-list '(joy-dessert has-ice-cream)
+             :del-list '(has-cake))))
 
+(mapc #'convert-op *eat-dessert-ops*)
+(use *eat-dessert-ops*)
 
+(debug* :gps)
+
+(GPS '(has-money)
+     '(joy-dessert))
+
+;; => ((START) (EXECUTING BUY-CAKE) (EXECUTING EAT-CAKE-WHEN-BUY)
+;;     (EXECUTING EAT-ICE-CREAM))
+
+;; SOLUTION
+(defun achieve (state goal goal-stack)
+  "A goal is achieved if it already holds,
+  or if there is an appropriate op for it that is applicable."
+  (dbg-indent :gps (length goal-stack) "Goal: ~a" goal)
+  (cond ((member-equal goal state) state)
+        ((member-equal goal goal-stack) nil)
+        (t (first (sort (mapcar #'(lambda (op) (apply-op state goal op goal-stack))
+                                (appropriate-ops goal state))
+                        #'<
+                        :key #'length)))))
+
+(GPS '(has-money)
+     '(joy-dessert))
+;; => ((START) (EXECUTING BUY-CAKE) (EXECUTING EAT-CAKE))
