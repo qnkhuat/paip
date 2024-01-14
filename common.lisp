@@ -1,9 +1,3 @@
-(defun mappend (fn l)
-  (if (null l)
-    nil
-    (append (funcall fn (first l))
-            (mappend fn (rest l)))))
-
 ;; chap03
 (defun find-all
   (item sequence &rest keyword-args
@@ -53,3 +47,18 @@
 (defun starts-with (list x)
  "Is this a list whose first element is x?"
  (and (consp list) (eql (first list) x)))
+
+(defun random-elt
+  (choices)
+  (list (elt choices (random (length choices)))))
+
+(defun flatten (the-list)
+  (mappend #'mklist the-list))
+
+(defun mklist (x)
+  (if (listp x)
+    x
+    (list x)))
+
+(defun mappend (fn the-list)
+  (apply #'append (mapcar fn the-list)))

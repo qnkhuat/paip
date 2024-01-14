@@ -50,6 +50,18 @@
                          nil
                          bindings)))
 
+(defun match-variable (var input bindings)
+  "Does VAR match input? Uses (or updates) and returns bindings."
+  (dbg :pat "Match var. var: ~a, Input: ~a, bindings: ~a" var input bindings)
+  (let ((binding (get-binding var bindings)))
+    (cond
+      ;; extend the binding if this binding does not exist
+      ((not binding) (extend-bindings var input bindings))
+      ;; if the binding exists and the value of the bindng is the same, we are safe to subsitute
+      ((equal input (binding-val binding)) bindings)
+      ;; this is the case where a binding has 2 values, which doesn't make sense so we'' fail
+      (t fail))))
+
 (defun pat-match (pattern input &optional (bindings no-bindings))
   "Match pattern against input in the context of the bindings"
   (cond ((eq bindings fail)
@@ -67,18 +79,6 @@
 
         (t
           fail)))
-
-(defun match-variable (var input bindings)
-  "Does VAR match input? Uses (or updates) and returns bindings."
-  (dbg :pat "Match var. var: ~a, Input: ~a, bindings: ~a" var input bindings)
-  (let ((binding (get-binding var bindings)))
-    (cond
-      ;; extend the binding if this binding does not exist
-      ((not binding) (extend-bindings var input bindings))
-      ;; if the binding exists and the value of the bindng is the same, we are safe to subsitute
-      ((equal input (binding-val binding)) bindings)
-      ;; this is the case where a binding has 2 values, which doesn't make sense so we'' fail
-      (t fail))))
 
 (match-variable '?x '(1 2) '((?x 1)))
 
@@ -181,3 +181,60 @@
 
 (pat-match '((?* ?x) a b (?* ?x)) '(1 2 a b a b 1 2 a b))
 ;; => ((?X 1 2 A B))
+
+;; ELIZA
+
+(defun rule-pattern (rule) (first rule))
+(defun rule-responses (rule) (rest rule))
+
+(defparameter *eliza-rules*
+  '((((?* ?x) hello (?* ?y))
+     (How do you do.  Please state your problem.))
+    (((?* ?x) I want (?* ?y))
+     (What would it mean if you got ?y)
+     (Why do you want ?y) (Suppose you got ?y soon))
+    (((?* ?x) if (?* ?y))
+     (Do you really think its likely that ?y) (Do you wish that ?y)
+     (What do you think about ?y) (Really-- if ?y))
+    (((?* ?x) no (?* ?y))
+     (Why not?) (You are being a bit negative)
+     (Are you saying "NO" just to be negative?))
+    (((?* ?x) I was (?* ?y))
+     (Were you really?) (Perhaps I already knew you were ?y)
+     (Why do you tell me you were ?y now?))
+    (((?* ?x) I feel (?* ?y))
+     (Do you often feel ?y ?))
+    (((?* ?x) I felt (?* ?y))
+     (What other feelings do you have?))))
+
+(sublis (switch-viewpoint (pat-match (rule-pattern (first rule)))))
+
+(defun switch-viewpoint (words)
+  "Change I to you and vice versa, and so on."
+  (sublis '((I . you) (you . I) (me . you) (am are))
+          words))
+
+(defun use-eliza-rules (input)
+  ;;(loop for rule in *eliza-rules*
+  ;;      for replacement = (pat-match (rule-pattern rule) input)
+  ;;      unless (null replacement)
+  ;;      return (sublis replacement (random-elt (rule-responses rule))))
+  (some #'(lambda (rule)
+            (let ((result (pat-match (rule-pattern rule) input)))
+              (if (not (eq result fail))
+                (sublis (switch-viewpoint result)
+                        (random-elt (rule-responses rule))))))
+        *eliza-rules*))
+
+(loop for x in '(1  1 3 4)
+      for y = (+ x 10)
+      unless (= y 13)
+      return (+ y 10))
+
+(when T
+  (print "SUP"))
+
+(defun eliza ()
+  (loop
+    (print 'eliza>)
+    (write (flatten (use-eliza-rules (read))) :pretty t)))
