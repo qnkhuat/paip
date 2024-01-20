@@ -52,9 +52,6 @@
   (choices)
   (list (elt choices (random (length choices)))))
 
-(defun flatten (the-list)
-  (mappend #'mklist the-list))
-
 (defun mklist (x)
   (if (listp x)
     x
@@ -62,3 +59,14 @@
 
 (defun mappend (fn the-list)
   (apply #'append (mapcar fn the-list)))
+
+(defun flatten (the-list)
+  (mappend #'mklist the-list))
+
+(defun comp (&rest fns)
+  (destructuring-bind (f &rest r) (reverse fns)
+    (lambda (&rest args)
+      (reduce (lambda (acc f)
+                (funcall f acc))
+              (rest (reverse fns))
+              :initial-value (apply (first (reverse fns)) args)))))
