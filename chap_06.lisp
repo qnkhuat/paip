@@ -1,4 +1,5 @@
 ;; Interactive programs
+(load "common.lisp")
 
 (defun interactive-interpreter (promp transformer)
   (loop
@@ -46,8 +47,6 @@
 ;;                 | ((`?if` exp )...)     | test if exp (which may contain variables) is true |
 ;; var =>          | `?`chars              | a symbol starting with ?                          |
 ;; constant =>     | atom                  | any nonvariable atom                              |
-(defvar no-bindings nil)
-
 
 (defconstant fail nil "Indicates pat-match failure")
 
@@ -243,12 +242,12 @@
 (pat-match '(a (?* ?x) (?* ?y) d) '(a b c d))
 ;; => ((?Y B C) (?X))
 
-(pat-match  '(?x ?op ?y is ?z (?if (eql (?op ?x ?y) ?z))) '(3 + 4 is 7))
+;(pat-match  '(?x ?op ?y is ?z (?if (eql (?op ?x ?y) ?z))) '(3 + 4 is 7))
 
 (defun pat-match-abbrev (symbol expansion)
   "Define symbol as a macro standing for a pat-match pattern."
   (setf (get symbol 'expand-pat-match-abbrev)
-    (expand-pat-match-abbrev expansion))
+    (expand-pat-match-abbrev expansion)))
 
 (defun expand-pat-match-abbrev (pat)
   "Expand out all pattern matching abbreviations in pat."
@@ -256,3 +255,167 @@
       ((atom pat) pat)
       (t (cons (expand-pat-match-abbrev (first pat))
           (expand-pat-match-abbrev (rest pat))))))
+
+
+;; 6.3 rule based translator tool
+(defun rule-based-translator
+  (input rules
+         &key
+         (matcher #'pat-match)
+         (rule-if #'first)
+         (rule-then #'rest)
+         (action #'sublis))
+  "Find the first rule in rules that matches input,
+  and apply the action to that rule."
+  (some
+    #'(lambda (rule)
+        (let ((result (funcall matcher (funcall rule-if rule)
+                               input)))
+          (if (not (eq result fail))
+            (funcall action result (funcall rule-then rule)))))
+    rules))
+
+(defun use-eliza-rules (input)
+  "Find some rule with which to transform the input."
+  (rule-based-translator input *eliza-rules*
+    :action #'(lambda (bindings responses)
+          (sublis (switch-viewpoint bindings)
+                (random-elt responses)))))
+
+;; 6.4 set of searching tools
+;; A search problem can be characterized by four features:
+;; - The start state
+;; - The goal state
+;; - The successors, or states that can be reached from any other state
+;; - The strategy that determines the order in which we search
+(defun tree-search (states goal-p successors combiner)
+  "Find a stsate that satisfies goal-p. Start with states, and search according to successors and combiners"
+  (dbg :search "~&; Search: ~a" states)
+  (cond ((null states) fail)
+        ((funcall goal-p (first states)) (first states))
+        (t (tree-search
+             (funcall combiner (funcall successors (first states))
+                      (rest states))
+             goal-p successors combiner))))
+
+(defun depth-first-search (start goal-p successors)
+  "Search new states first until goal is reached."
+  (tree-search (list start) goal-p successors #'append))
+
+(defun binary-tree (x) (list (* 2 x) (+ 1 (* 2 x))))
+
+(defun is (value) #'(lambda (x) (eql x value)))
+(debug* :search)
+
+;(depth-first-search 1 (is 12) #'binary-tree)
+
+(defun breadth-first-search
+  (start goal-p successors)
+  (tree-search (list start) goal-p successors #'prepend) )
+
+(breadth-first-search 1 (is 12) #'binary-tree)
+
+(defun finite-binary-tree (n)
+  "Return a successor function that generates a binary tree
+  with n nodes."
+  #'(lambda (x)
+      (remove-if #'(lambda (child) (> child n))
+                 (binary-tree x))))
+
+(depth-first-search 1 (is 12) (finite-binary-tree 15))
+
+;; best first search
+(defun diff (num)
+  #'(lambda (x) (abs (- x num))))
+
+(defun sorter (cost-fn)
+  #'(lambda (new old) (sort (append new old) #'< :key cost-fn)))
+
+(defun best-first-search (start goal-p successors cost-fn)
+  (tree-search (list start) goal-p successors (sorter cost-fn)))
+
+;; because we know about the state space, we can inject our knowledge into the general search algorithm
+(best-first-search 1 (is 12) #'binary-tree (diff 12))
+
+
+;; like best-first-search but it does not let the search space to grow indefnitely
+;; instead it'll only keep `beam-width` items after sort
+;; it's like we only look down several paths at once and chooses the best one to look at next
+;; One draw back is that we lose the ability to backtrack
+(defun beam-search (start goal-p successors cost-fn beam-width)
+  (tree-search (list start) goal-p successors
+               #'(lambda (old new)
+                   (let ((sorted (funcall (sorter cost-fn) old new)))
+                     (if (> beam-width (length sorted))
+                       sorted
+                       (subseq sorted 0 beam-width))))))
+
+(defun price-is-right (price)
+  "Return a function that measures the difference from price,
+  but gives a big penalty for going over price."
+  #'(lambda (x) (if (> x price)
+              most-positive-fixnum
+              (- price x))))
+
+(beam-search 1 (is 12) #'binary-tree (price-is-right 12) 2)
+
+(defstruct (city (:type list)) name long lat)
+
+(defparameter *cities*
+  '((Atlanta        84.23 33.45)
+    (Los-Angeles       118.15 34.03)
+    (Boston           71.05 42.21)      (Memphis           90.03 35.09)
+    (Chicago          87.37 41.50)      (New-York          73.58 40.47)
+    (Denver           105.00 39.45)     (Oklahoma-City     97.28 35.26)
+    (Eugene           123.05 44.03)     (Pittsburgh        79.57 40.27)
+    (Flagstaff        111.41 35.13)     (Quebec            71.11 46.49)
+    (Grand-Jct        108.37 39.05)     (Reno              119.49 39.30)
+    (Houston          105.00 34.00)     (San-Francisco     122.26 37.47)
+    (Indianapolis     86.10 39.46)      (Tampa             82.27 27.57)
+    (Jacksonville     81.40 30.22)      (Victoria          123.21 48.25)
+    (Kansas-City      94.35 39.06)      (Wilmington        77.57 34.14)))
+
+(defun neighbors (city)
+  (find-all-if #'(lambda (c)
+                   (and (not (eq c city))
+                        (< (air-distance c city) 1000.0)))
+               *cities*))
+
+(defun city (name)
+  (assoc name *cities*))
+
+(defconstant earth-diameter 12765.0
+  "Diameter of planet earth in kilometers.")
+
+(defun air-distance (city1 city2)
+  "The great circle distance between two cities."
+  (let ((d (distance (xyz-coords city1) (xyz-coords city2))))
+    ;; d is the straight-line chord between the two cities,
+    ;; The length of the subtending arc is given by:
+    (* earth-diameter (asin (/ d 2)))))
+
+(defun xyz-coords (city)
+  "Returns the x,y,z coordinates of a point on a sphere.
+  The center is (0 0 0) and the north pole is (0 0 1)."
+  (let ((psi (deg->radians (city-lat city)))
+        (phi (deg->radians (city-long city))))
+      (list (* (cos psi) (cos phi))
+            (* (cos psi) (sin phi))
+            (sin psi))))
+
+(defun distance (point1 point2)
+  "The Euclidean distance between two points.
+  The points are coordinates in n-dimensional space."
+  (sqrt (reduce #'+ (mapcar #'(lambda (a b) (expt (- a b) 2))
+                point1 point2))))
+
+(defun deg->radians (deg)
+  "Convert degrees and minutes to radians."
+  (* (+ (truncate deg) (* (rem  deg 1) 100/60)) pi 1/180))
+
+(defun trip (start dest)
+  (beam-search start (is dest) #'neighbors #'(lambda (c) (air-distance c dest)) 1))
+
+(trace neighbors)
+
+(trip (city 'san-francisco) (city 'boston))
