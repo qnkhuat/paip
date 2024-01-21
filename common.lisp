@@ -68,5 +68,5 @@
     (lambda (&rest args)
       (reduce (lambda (acc f)
                 (funcall f acc))
-              (rest (reverse fns))
-              :initial-value (apply (first (reverse fns)) args)))))
+              r
+              :initial-value (apply f args)))))
