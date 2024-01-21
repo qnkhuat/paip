@@ -178,7 +178,6 @@
 (untrace pat-match)
 (untrace match-variable)
 
-
 (pat-match '((?* ?x) a b (?* ?x)) '(1 2 a b a b 1 2 a b))
 ;; => ((?X 1 2 A B))
 
