@@ -23,7 +23,7 @@
 
 (defun variable-p (x)
   (and (symbolp x)
-       (eql #\? (char (string x) 0))))
+       (eql #\? (char (symbol-name x) 0))))
 
 (defun make-binding (pattern input bindings)
   (cons (cons pattern input) (if (equal bindings no-bindings)
@@ -39,6 +39,23 @@
     ;; if the variable already exists, we need to fail out
     fail))
 
+(defun single-pattern-p (x)
+  (and (consp x)
+       (symbolp (car x))
+       (eql #\? (char (symbol-name (car x)) 0))))
+
+
+(defun match-is (pattern input bindings)
+  (destructuring-bind (_ var pred) pattern
+    (if (funcall (symbol-function pred) input)
+      (make-binding var input bindings)
+      fail)))
+
+(setf (get '?is 'single-match) #'match-is)
+
+(defun single-pattern-matcher (pattern input bindings)
+  (funcall (get (first pattern) 'single-match) pattern input bindings))
+
 (defun pat-match (pattern input &optional (bindings no-bindings))
   (cond
     ((eql bindings fail) fail)
@@ -50,15 +67,32 @@
     ((eql pattern input)
      bindings)
 
+    ((single-pattern-p pattern)
+     (single-pattern-matcher pattern input bindings))
+
     ((and (consp pattern) (consp input))
       (pat-match (rest pattern) (rest input) (pat-match (first pattern) (first input) bindings)))
 
     (t fail)))
 
-(trace variable-matcher)
-(trace pat-match)
+(untrace single-pattern-matcher)
+(untrace pat-match)
+(untrace match-is)
 
+;; simple case
 (pat-match '(i need a ?X) '(i need a vacation))
+;; => ((?X . VACATION))
+
+
+;; single patterns
+(pat-match '(?x (?or < = >) ?y) '(3 < 4))
+;; => ((?Y 4) (?x 3))
+
+(pat-match '(x = (?is ?n numberp)) '(x = 34))
+;; => ((?N 34))
+
+(pat-match '(x = (?and (?is ?n numberp) (?is ?n oddp))) '(x = 3))
+
 
 (pat-match '(a (?* ?x) d) '(a b c d))
 ;; => ((?X B C))
@@ -66,8 +100,4 @@
 (pat-match '(a (?* ?x) (?* ?y) d) '(a b c d))
 ;; => ((?Y B C) (?X))
 
-(pat-match '(?x (?or < = >) ?y) '(3 < 4))
-;; => ((?Y 4) (?x 3))
-
-(pat-match '(x = (?and (?is ?n numberp) (?is ?n oddp))) '(x = 3))
 ;; => ((?N 3))
