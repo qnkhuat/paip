@@ -289,7 +289,7 @@
 ;; - The successors, or states that can be reached from any other state
 ;; - The strategy that determines the order in which we search
 (defun tree-search (states goal-p successors combiner)
-  "Find a stsate that satisfies goal-p. Start with states, and search according to successors and combiners"
+  "Find a state that satisfies goal-p. Start with states, and search according to successors and combiners"
   (dbg :search "~&; Search: ~a" states)
   (cond ((null states) fail)
         ((funcall goal-p (first states)) (first states))
@@ -416,6 +416,111 @@
 (defun trip (start dest)
   (beam-search start (is dest) #'neighbors #'(lambda (c) (air-distance c dest)) 1))
 
-(trace neighbors)
+(untrace neighbors)
+(untrace air-distance)
 
 (trip (city 'san-francisco) (city 'boston))
+; Search: ((SAN-FRANCISCO 122.26 37.47))
+; Search: ((RENO 119.49 39.3))
+; Search: ((GRAND-JCT 108.37 39.05))
+; Search: ((DENVER 105.0 39.45))
+; Search: ((KANSAS-CITY 94.35 39.06))
+; Search: ((INDIANAPOLIS 86.1 39.46))
+; Search: ((PITTSBURGH 79.57 40.27))
+; Search: ((BOSTON 71.05 42.21))
+;; => (BOSTON 71.05 42.21)
+;; this works fine but it does a bunch of small trips, the total total trip might be much more than we should
+;; so we'll work on a more optiomal solution
+
+(defun print-path (path &optional (stream t) depth)
+  (declare (ignore depth))
+  (format stream "#<Path to ~a cost ~a>"
+        (path-state path) (path-total-cost path)))
+
+(defun map-path (fn path)
+  "Call fn on each state in the path, collecting results."
+  (if (null path)
+      nil
+      (cons (funcall fn (path-state path))
+          (map-path fn (path-previous path)))))
+
+(defun show-city-path (path &optional (stream t))
+  "Show the length of a path, and the cities along it."
+  (format stream "#<Path ~a km: ~{~:(~a~)~^- ~}>"
+        (path-total-cost path)
+        (reverse (map-path #'city-name path)))
+  (values))
+
+(defstruct (path (:print-function print-path))
+  state
+  (previous nil)
+  (cost-so-far 0)
+  (total-cost))
+
+(defconstant earth-diameter 12765.0
+  "Diameter of planet earth in kilometers.")
+
+(defun distance (point1 point2)
+  "The Euclidean distance between two points.
+  The points are coordinates in n-dimensional space."
+  (sqrt (reduce #'+ (mapcar #'(lambda (a b) (expt (- a b) 2))
+                            point1 point2))))
+
+(defun air-distance (city1 city2)
+  "The great circle distance between two cities."
+  (let ((d (distance (xyz-coords city1) (xyz-coords city2))))
+    ;; d is the straight-line chord between the two cities,
+    ;; The length of the subtending arc is given by:
+    (* earth-diameter (asin (/ d 2)))))
+
+(defun xyz-coords (city)
+  "Returns the x,y,z coordinates of a point on a sphere.
+  The center is (0 0 0) and the north pole is (0 0 1)."
+  (let ((psi (deg->radians (city-lat city)))
+        (phi (deg->radians (city-long city))))
+      (list (* (cos psi) (cos phi))
+            (* (cos psi) (sin phi))
+            (sin psi))))
+
+(defun deg->radians (deg)
+  "Convert degrees and minutes to radians."
+  (* (+ (truncate deg) (* (rem  deg 1) 100/60)) pi 1/180))
+
+(defun is (target &key (key #'identity) (test #'eql))
+  #'(lambda (x) (funcall test target (funcall key x))))
+
+(defun path-saver (successors cost-fn cost-left-fn)
+  #'(lambda (old-path)
+      (let ((old-state (path-state old-path)))
+        (mapcar
+          #'(lambda (new-state)
+              (let ((old-cost (+ (path-cost-so-far old-path)
+                                 (funcall cost-fn old-state new-state))))
+                (make-path
+                  :state new-state
+                  :previous old-path
+                  :cost-so-far old-cost
+                  :total-cost (+ old-cost (funcall cost-left-fn new-state)))))
+          (funcall successors old-state)))))
+
+(defun trip (start dest &optional (beam-width 1))
+  "Search for the best path from the start to dest"
+  (beam-search (make-path :state start)
+               (is dest :key #'path-state)
+               (path-saver #'neighbors #'air-distance
+                           #'(lambda (c) (air-distance c dest)))
+               #'path-total-cost
+               beam-width))
+
+(trip (city 'san-francisco) (city 'boston))
+;; => #<Path to (BOSTON 71.05 42.21) cost 4514.8366418661035d0>
+
+(defun iter-wide-search (start goal-p successors cost-fn
+                &key (width 1) (max 100))
+  "Search, increasing beam width from width to max.
+  Return the first solution found at any width."
+  (dbg :search "; Width: ~d" width)
+  (unless (> width max)
+    (or (beam-search start goal-p successors cost-fn width)
+      (iter-wide-search start goal-p successors cost-fn
+                        :width (+ width 1) :max max))))

@@ -60,6 +60,9 @@
 (defun mappend (fn the-list)
   (apply #'append (mapcar fn the-list)))
 
+(defun prepend (x y)
+  (funcall #'append y x))
+
 (defun flatten (the-list)
   (mappend #'mklist the-list))
 

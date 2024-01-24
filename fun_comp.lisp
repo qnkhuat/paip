@@ -14,7 +14,11 @@
                        (funcall fn result))))
       result)))
 
+
+
 (funcall (comp #'square #'dbl) 3)
+
+(square (+ 1 2))
 ;; => 36
 
 ;; proper version using recursive
