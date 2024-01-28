@@ -74,6 +74,8 @@
               r
               :initial-value (apply f args)))))
 
+(defconstant fail nil "Indicates pat-match failure")
+
 (defun rule-based-translator
   (input rules
          &key
