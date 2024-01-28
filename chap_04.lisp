@@ -8,7 +8,7 @@
 
 
 ;; 1 Describe
-;; Means-end analysis is a problem-solving strategy where you start with the end goal
+;; NOTE: Means-end analysis is a problem-solving strategy where you start with the end goal
 ;; you want to achieve and then work backward to figure out the steps or means to reach that goal
 
 ;; 2 Specification
