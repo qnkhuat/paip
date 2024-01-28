@@ -656,3 +656,29 @@
 ;; defining a good h(n) is the most important thing, if a h(n) is admissble heuristic meaning
 ;; it estimates nevery overestimate then a*search guaranteed to return an optional solution
 ;; https://brilliant.org/wiki/a-star-search/
+
+
+;; Ex: 6.11
+
+
+
+(trip (city 'san-francisco) (city 'boston))
+:; => #<Path to (BOSTON 71.05 42.21) cost 4514.8366418661035d0>
+
+
+(defun search-n (n start goal-p successors cost-fn beam-width)
+  (let ((solutions '()))
+    (beam-search start #'(lambda (x)
+                           (cond ((not (funcall goal-p x)) nil)
+                                 ((= n 0) x)
+                                 (t (decf n)
+                                    (push x solutions))))
+                 successors
+                 cost-fn
+                 beam-width)
+    solutions))
+
+(defun trip-2 (start dest)
+  (search-n 2 start (is dest) #'neighbors #'(lambda (c) (air-distance c dest)) 1))
+
+(trip-2 (city 'san-francisco) (city 'boston))
