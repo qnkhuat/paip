@@ -648,3 +648,11 @@
   (a*-search (list (make-path :state 1)) (is 6)
              #'next2 #'(lambda (x y) 1) (diff 6)))
 ;; => (6 5 3 1)
+;; a* search does not do anything special, at each step it considers what is the lowest cost
+;; the formula for the cost to reach `n`node is f(n) = g(n) + h(n)
+;; - g(n) is the cost so far
+;; - h(n) is a heuristic cost funciton where it estimates the cost from n -> target.
+
+;; defining a good h(n) is the most important thing, if a h(n) is admissble heuristic meaning
+;; it estimates nevery overestimate then a*search guaranteed to return an optional solution
+;; https://brilliant.org/wiki/a-star-search/
