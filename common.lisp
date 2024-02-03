@@ -308,5 +308,19 @@
   (setf (get symbol 'expand-pat-match-abbrev)
     (expand-pat-match-abbrev expansion)))
 
+(defun memo (f)
+  (let ((table (make-hash-table :test 'equal)))
+    (setf (get name 'memo) table)
+    #'(lambda (&rest args)
+        (multiple-value-bind (val found-p)
+          (gethash args table)
+          (if found-p
+              val
+              (setf (gethash args table) (apply f args)))))))
 
+(defun memoize
+  (fn-name)
+  (setf (symbol-function fn-name) (memo (symbol-function fn-name))))
 
+(defmacro defun-memo (fn args &body body)
+  `(memoize (defun ,fn ,args . , body)))
