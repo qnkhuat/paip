@@ -661,7 +661,6 @@
 ;; Ex: 6.11
 
 
-
 (trip (city 'san-francisco) (city 'boston))
 :; => #<Path to (BOSTON 71.05 42.21) cost 4514.8366418661035d0>
 
